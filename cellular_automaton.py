@@ -1,20 +1,30 @@
-from copy import deepcopy
-
 import numpy as np
 
-class CellularAutomaton1d:
+"""
+This class implements the skeleton for a cellular automaton. It is based on a position-velocity
+approach, where the positions and velocities of each car are tracked and updated.
+"""
 
-    def __init__(self, initial_state, max_timesteps):
-        self.initial_state = initial_state
-        self.length = len(initial_state)
-        self.max_timesteps = max_timesteps + 1
-        self.states = np.zeros((self.max_timesteps, self.length))
-        self.states[0, :] = initial_state
+class CellularAutomaton:
+    def __init__(self, initial_positions, initial_velocities, road_length, max_timesteps):
+        self.road_length = road_length
+        self.max_timesteps = max_timesteps
+        self.positions = initial_positions
+        self.velocities = initial_velocities
+        self.traffic_evolution = np.zeros((self.max_timesteps, self.road_length))
 
     def simulate(self, rule):
-        for t in range(self.max_timesteps-1):
-            current_state = np.copy(self.states[t, :])
-            next_state = rule.apply_rule(current_state)
-            self.states[t+1, :] = np.copy(next_state)
+        for t in range(self.max_timesteps):
+            self.update_traffic_evolution(t)
+            current_positions = np.copy(self.positions)
+            current_velocities = np.copy(self.velocities)
 
-        return self.states
+            next_positions, next_velocities = rule.apply_rule(current_positions, current_velocities)
+            self.positions = next_positions
+            self.velocities = next_velocities
+
+        return self.traffic_evolution
+
+    def update_traffic_evolution(self, t):
+        for i in self.positions:
+            self.traffic_evolution[t, int(i)] = 1

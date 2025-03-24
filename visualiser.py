@@ -6,7 +6,7 @@ class Visualiser:
 
     def __init__(self, traffic_evolution):
         """
-        Class that visualises the traffic flow evolution
+        Class that visualises the traffic flow evolution.
         :param traffic_evolution: TxN matrix of traffic evolution
         """
         self.traffic_evolution = traffic_evolution
