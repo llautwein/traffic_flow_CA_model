@@ -4,12 +4,14 @@ from matplotlib.animation import FuncAnimation
 
 class Visualiser:
 
-    def __init__(self, traffic_evolution):
+    def __init__(self, traffic_evolution, detect_start=None, detect_end=None):
         """
         Class that visualises the traffic flow evolution.
         :param traffic_evolution: TxN matrix of traffic evolution
         """
         self.traffic_evolution = traffic_evolution
+        self.detect_start = detect_start
+        self.detect_end = detect_end
         plt.rcParams.update({
             "axes.titlesize": 18,
             "axes.labelsize": 12,
@@ -34,6 +36,11 @@ class Visualiser:
         # Shows grid for the final animation
         axis.grid(True, which="minor", color="black", linestyle='-', linewidth=1)
 
+        # Overlay the detector region
+        if self.detect_start is not None and self.detect_end is not None:
+            axis.axvspan(self.detect_start - 0.5, self.detect_end + 0.5,
+                         color='red', alpha=0.3, zorder=1)
+
         # initial plot for the animation is the initial state of the system
         animated_plot = axis.imshow(
             [self.traffic_evolution[0, :]], cmap="gray_r", vmin=0, vmax=2, aspect="equal",
@@ -54,7 +61,7 @@ class Visualiser:
             repeat=False
         )
 
-        animation.save("results/traffic_visualisation.gif")
+        animation.save("CellAutomata/traffic_visualisation.gif")
 
     def matrix_plot(self):
         fig, axis = plt.subplots()
