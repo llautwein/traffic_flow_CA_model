@@ -29,7 +29,7 @@ class Rule184(Rule):
 
         for i in range(num_cars):
             current_pos = sorted_positions[i]
-            next_pos = (current_pos + 1) % self.road_length  # Wrap around (circular road)
+            next_pos = (current_pos + 1) % self.road_length
 
             # Check if next position is occupied
             if next_pos not in sorted_positions:
