@@ -14,6 +14,7 @@ class CellularAutomaton:
         self.velocities = initial_velocities
         self.traffic_evolution = np.zeros((self.max_timesteps, self.road_length))
         self.local_space_meanVels = np.zeros(self.max_timesteps)
+        self.local_velocity_variance = np.zeros(self.max_timesteps)
         self.local_densities = np.zeros(self.max_timesteps)
         self.local_flows = np.zeros(self.max_timesteps)
         self.start = detect_start
@@ -27,16 +28,19 @@ class CellularAutomaton:
 
             # local detector measurements
             if self.start is not None and self.end is not None:
-                local_mean_velocity, local_density, local_flow = self.local_measurement(current_positions, current_velocities)
+                (local_mean_velocity, local_variance_velocity,
+                 local_density, local_flow) = self.local_measurement(current_positions, current_velocities)
                 self.local_space_meanVels[t] = local_mean_velocity
+                self.local_velocity_variance[t] = local_variance_velocity
                 self.local_densities[t] = local_density
                 self.local_flows[t] = local_flow
                     
-            next_positions, next_velocities = rule.apply_rule(current_positions, current_velocities)
+            next_positions, next_velocities = rule.apply_rule(current_positions, current_velocities, t)
             self.positions = next_positions
             self.velocities = next_velocities
 
-        return (self.traffic_evolution, self.local_space_meanVels, self.local_densities, self.local_flows)
+        return (self.traffic_evolution, self.local_space_meanVels, self.local_velocity_variance,
+                self.local_densities, self.local_flows)
 
     def local_measurement(self, current_positions, current_velocities):
         mask = (current_positions >= self.start) & (current_positions <= self.end)
@@ -47,12 +51,14 @@ class CellularAutomaton:
         if num_cars > 0:
             detected_velocities = current_velocities[mask]
             local_mean_velocity = np.mean(detected_velocities)
+            local_variance_velocity = np.var(detected_velocities)
         else:
             local_mean_velocity = 0
+            local_variance_velocity = 0
     
         local_flow = local_density * local_mean_velocity
         
-        return(local_mean_velocity, local_density, local_flow)
+        return local_mean_velocity, local_variance_velocity, local_density, local_flow
 
     def update_traffic_evolution(self, t):
         for i in self.positions:

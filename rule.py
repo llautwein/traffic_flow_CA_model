@@ -1,4 +1,4 @@
-from turtledemo.clock import current_day
+
 
 import numpy as np
 
@@ -9,7 +9,7 @@ class Rule:
     def __init__(self, road_length):
         self.road_length = road_length
 
-    def apply_rule(self, positions, velocities):
+    def apply_rule(self, positions, velocities, time_step):
         pass
 
     def BC(self):
@@ -19,7 +19,7 @@ class Rule184(Rule):
     def __init__(self, road_length):
         super().__init__(road_length)
 
-    def apply_rule(self, positions, velocities):
+    def apply_rule(self, positions, velocities, time_step):
         """
         Updates car positions and velocities based on Rule 184 logic. (Binary Velocity)
         """
@@ -49,7 +49,7 @@ class Rule184_random(Rule):
         super().__init__(road_length)
         self.probability = probability
 
-    def apply_rule(self, positions, velocities):
+    def apply_rule(self, positions, velocities, time_step):
         """
         Updates car positions and velocities based on Rule 184. Drivers occasionally stop due to a random event.
         """
@@ -76,7 +76,7 @@ class Rule184_random(Rule):
 
         return sorted_positions, sorted_velocities
 
-class Rule184_max_velocity(Rule):
+class MaxVelocity(Rule):
     """
     Includes a maximum velocity rule, in a deterministic setup.
     """
@@ -85,11 +85,12 @@ class Rule184_max_velocity(Rule):
         self.max_velocity = max_velocity
 
     def compute_gaps(self, current_positions):
+        # gap to preceding vehicle
         gap = np.roll(current_positions, -1) - current_positions - np.ones(len(current_positions))
         gap[-1] += self.road_length
         return gap
 
-    def apply_rule(self, positions, velocities):
+    def apply_rule(self, positions, velocities, time_step):
         sorted_indices = np.argsort(positions)
         sorted_positions = positions[sorted_indices]
         sorted_velocities = velocities[sorted_indices]
@@ -108,7 +109,7 @@ class Rule184_max_velocity(Rule):
         return sorted_positions, sorted_velocities
 
 
-class Rule184_max_velocity_random(Rule):
+class MaxVelocityRandom(Rule):
     """
     Includes a maximum velocity rule, in a non-deterministic setup.
     """
@@ -123,7 +124,7 @@ class Rule184_max_velocity_random(Rule):
         gap[-1] += self.road_length
         return gap
 
-    def apply_rule(self, positions, velocities):
+    def apply_rule(self, positions, velocities, time_step):
         sorted_indices = np.argsort(positions)
         sorted_positions = positions[sorted_indices]
         sorted_velocities = velocities[sorted_indices]
@@ -144,3 +145,45 @@ class Rule184_max_velocity_random(Rule):
         # Updates the positions
         sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
         return sorted_positions, sorted_velocities
+
+class MaxVelocityTrafficLights(MaxVelocity):
+    """
+    Implements the max velocity rule with traffic lights
+    """
+    def __init__(self, road_length, max_velocity, light_position, green_duration, red_duration):
+        super().__init__(road_length, max_velocity)
+        self.light_position = light_position
+        self.green_duration = green_duration
+        self.red_duration = red_duration
+        self.cycle_length = green_duration + red_duration
+
+    def is_light_green(self, time_step):
+        cycle_time = time_step % self.cycle_length
+        return cycle_time < self.green_duration
+
+    def apply_rule(self, positions, velocities, time_step):
+        sorted_indices = np.argsort(positions)
+        sorted_positions = positions[sorted_indices]
+        sorted_velocities = velocities[sorted_indices]
+
+        # Gaps between each car and its preceding vehicle
+        gaps = self.compute_gaps(sorted_positions)
+
+        # Increases the velocity by one, except when max velocity is reached
+        sorted_velocities = np.minimum(sorted_velocities + 1, self.max_velocity)
+
+        # Ensures that cars don't collide
+        sorted_velocities = np.minimum(sorted_velocities, gaps)
+
+        if not self.is_light_green(time_step):
+            for i in range(len(sorted_positions)):
+                distance_to_light = (self.light_position - sorted_positions[i]) % self.road_length
+                if 0 < distance_to_light <= sorted_velocities[i]:
+                    sorted_velocities[i] = distance_to_light-1
+
+        # Updates the positions
+        sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
+        return sorted_positions, sorted_velocities
+
+
+
