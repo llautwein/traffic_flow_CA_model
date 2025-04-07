@@ -12,13 +12,16 @@ class Rule:
     def apply_rule(self, positions, velocities):
         pass
 
+    def BC(self):
+        pass
+        
 class Rule184(Rule):
     def __init__(self, road_length):
         super().__init__(road_length)
 
     def apply_rule(self, positions, velocities):
         """
-        Updates car positions and velocities based on Rule 184 logic.
+        Updates car positions and velocities based on Rule 184 logic. (Binary Velocity)
         """
         num_cars = len(positions)
 
@@ -107,7 +110,7 @@ class Rule184_max_velocity(Rule):
 
 class Rule184_max_velocity_random(Rule):
     """
-    Includes a maximum velocity rule, in a deterministic setup.
+    Includes a maximum velocity rule, in a non-deterministic setup.
     """
 
     def __init__(self, road_length, max_velocity, braking_probality):
