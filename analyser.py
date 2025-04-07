@@ -27,17 +27,17 @@ class Analyser:
                                  self.road_length, self.max_timesteps, 0, self.road_length-1)
             (traffic_evolution, space_mean_velocities, variance_velocity,
              local_densities, local_flows) = automaton.simulate(rule)
-            mean_velocity.append(space_mean_velocities[-1])
-            var_velocity.append(np.mean(variance_velocity))
-            flow.append(local_flows[-1])
+            mean_velocity.append(np.mean(space_mean_velocities[1:]))
+            var_velocity.append(np.mean(variance_velocity[1:]))
+            flow.append(np.mean(local_flows[1:]))
         return density, mean_velocity, var_velocity, flow
 
 
-road_length = 100
-max_timesteps = 50
-max_velocity = 3
+road_length = 500
+max_timesteps = 1000
+max_velocity = 5
 analyser = Analyser(road_length, max_timesteps)
-rule = rule.MaxVelocity(road_length, max_velocity)
+rule = rule.MaxVelocityRandom(road_length, max_velocity, 0.1)
 density, mean_velocity, var_velocity, flow = analyser.density_vel_flow(rule)
 visualiser = visualiser.Visualiser()
 visualiser.density_meanvel_flow_plot(density, mean_velocity, var_velocity, flow)

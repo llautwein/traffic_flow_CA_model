@@ -112,6 +112,7 @@ class MaxVelocity(Rule):
 class MaxVelocityRandom(Rule):
     """
     Includes a maximum velocity rule, in a non-deterministic setup.
+    Driver randomly decrease their speed by 1 with a certain probability.
     """
 
     def __init__(self, road_length, max_velocity, braking_probality):
@@ -135,12 +136,12 @@ class MaxVelocityRandom(Rule):
         # Increases the velocity by one, except when max velocity is reached
         sorted_velocities = np.minimum(sorted_velocities + 1, self.max_velocity)
 
+        # Ensures that cars don't collide
+        sorted_velocities = np.minimum(sorted_velocities, gaps)
+
         # Includes random braking by drivers
         braking_events = np.random.rand(len(sorted_velocities)) < self.braking_probability
         sorted_velocities[braking_events] = np.maximum(sorted_velocities[braking_events] - 1, 0)
-
-        # Ensures that cars don't collide
-        sorted_velocities = np.minimum(sorted_velocities, gaps)
 
         # Updates the positions
         sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
@@ -150,16 +151,15 @@ class MaxVelocityTrafficLights(MaxVelocity):
     """
     Implements the max velocity rule with traffic lights
     """
-    def __init__(self, road_length, max_velocity, light_position, green_duration, red_duration):
+    def __init__(self, road_length, max_velocity, light_positions, green_durations, red_durations):
         super().__init__(road_length, max_velocity)
-        self.light_position = light_position
-        self.green_duration = green_duration
-        self.red_duration = red_duration
-        self.cycle_length = green_duration + red_duration
+        self.light_positions = light_positions
+        self.green_durations = green_durations
+        self.red_durations = red_durations
 
-    def is_light_green(self, time_step):
-        cycle_time = time_step % self.cycle_length
-        return cycle_time < self.green_duration
+    def is_light_green(self, time_step, cycle_length, green_duration):
+        cycle_time = time_step % cycle_length
+        return cycle_time < green_duration
 
     def apply_rule(self, positions, velocities, time_step):
         sorted_indices = np.argsort(positions)
@@ -174,12 +174,15 @@ class MaxVelocityTrafficLights(MaxVelocity):
 
         # Ensures that cars don't collide
         sorted_velocities = np.minimum(sorted_velocities, gaps)
-
-        if not self.is_light_green(time_step):
-            for i in range(len(sorted_positions)):
-                distance_to_light = (self.light_position - sorted_positions[i]) % self.road_length
-                if 0 < distance_to_light <= sorted_velocities[i]:
-                    sorted_velocities[i] = distance_to_light-1
+        for i in range(len(self.light_positions)):
+            light_position = self.light_positions[i]
+            green_duration, red_duration = self.green_durations[i], self.red_durations[i]
+            cycle_length = green_duration + red_duration
+            if not self.is_light_green(time_step, cycle_length, green_duration):
+                for j in range(len(sorted_positions)):
+                    distance_to_light = (light_position - sorted_positions[j]) % self.road_length
+                    if 0 < distance_to_light <= sorted_velocities[j]:
+                        sorted_velocities[j] = distance_to_light-1
 
         # Updates the positions
         sorted_positions = (sorted_positions + sorted_velocities) % self.road_length

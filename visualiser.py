@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+
 class Visualiser:
 
     def __init__(self, detect_start=None, detect_end=None):
@@ -19,7 +20,7 @@ class Visualiser:
             "legend.fontsize": 12,
         })
 
-    def create_gif(self, traffic_evolution):
+    def create_gif(self, traffic_evolution, light_positions=None, green_durations=None, red_durations=None):
         fig, axis = plt.subplots()
         # Set x- and y-axis
         axis.set_xlim(0, traffic_evolution.shape[1] - 0.5)
@@ -48,8 +49,21 @@ class Visualiser:
 
         # updates the data which is plotted for every frame (frame corresponds to the time step in the model)
         def update_data(frame):
-            if frame > 0:
-                animated_plot.set_data([traffic_evolution[frame, :]])
+            if light_positions is not None:
+                for i in range(len(light_positions)):
+                    traffic_light = light_positions[i]
+                    green_duration, red_duration = green_durations[i], red_durations[i]
+                    axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
+                                 color="white")
+                    cycle_time = frame % (green_duration + red_duration)
+                    if not cycle_time < green_duration:
+                        axis.axvspan(traffic_light-0.5, traffic_light+0.5,
+                                     color="red", alpha=0.3)
+                    else:
+                        axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
+                                     color="green", alpha=0.3)
+                if frame > 0:
+                    animated_plot.set_data([traffic_evolution[frame, :]])
             return animated_plot,
 
         animation = FuncAnimation(
@@ -62,7 +76,7 @@ class Visualiser:
 
         animation.save("CellAutomata/traffic_visualisation.gif")
 
-    def matrix_plot(self, traffic_evolution):
+    def matrix_plot(self, traffic_evolution, light_positions=None, green_durations=None, red_durations=None):
         fig, axis = plt.subplots()
 
         # plots the matrix values (white=empty, gray=car, gridlines=black)
@@ -78,6 +92,21 @@ class Visualiser:
         # Align ticks with cell edges
         axis.set_xticks(np.arange(traffic_evolution.shape[1]))
         axis.set_yticks(np.arange(0, traffic_evolution.shape[0], 2))
+
+        if light_positions is not None:
+            for i in range(len(light_positions)):
+                traffic_light = light_positions[i]
+                green_duration, red_duration = green_durations[i], red_durations[i]
+                for time_step in range(traffic_evolution.shape[0]):
+                    cycle_time = time_step % (green_duration + red_duration)
+                    if not cycle_time < green_duration:
+                        axis.axvspan(traffic_light-0.5, traffic_light+0.5,
+                                     1-((time_step+1)*(1/traffic_evolution.shape[0])),
+                                     1-(time_step*(1/traffic_evolution.shape[0])), color="red", alpha=0.3)
+                    else:
+                        axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
+                                      1 - ((time_step + 1) * (1 / traffic_evolution.shape[0])),
+                                      1 - (time_step * (1 / traffic_evolution.shape[0])), color="green", alpha=0.3)
 
         axis.set_xlabel("Road Position")
         axis.set_ylabel("Time Step")
