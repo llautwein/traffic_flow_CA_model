@@ -20,7 +20,8 @@ class Visualiser:
             "legend.fontsize": 12,
         })
 
-    def create_gif(self, traffic_evolution, light_positions=None, green_durations=None, red_durations=None):
+    def create_gif(self, traffic_evolution, light_positions=None,
+                   green_durations=None, red_durations=None, start_red=None):
         fig, axis = plt.subplots()
         # Set x- and y-axis
         axis.set_xlim(0, traffic_evolution.shape[1] - 0.5)
@@ -56,12 +57,15 @@ class Visualiser:
                     axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
                                  color="white")
                     cycle_time = frame % (green_duration + red_duration)
-                    if not cycle_time < green_duration:
-                        axis.axvspan(traffic_light-0.5, traffic_light+0.5,
-                                     color="red", alpha=0.3)
+
+                    if start_red[i]:
+                        light_is_green = cycle_time >= red_duration
                     else:
-                        axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
-                                     color="green", alpha=0.3)
+                        light_is_green = cycle_time < green_duration
+
+                    color = "green" if light_is_green else "red"
+                    axis.axvspan(traffic_light-0.5, traffic_light+0.5,
+                                     color=color, alpha=0.3)
                 if frame > 0:
                     animated_plot.set_data([traffic_evolution[frame, :]])
             return animated_plot,
@@ -76,7 +80,8 @@ class Visualiser:
 
         animation.save("CellAutomata/traffic_visualisation.gif")
 
-    def matrix_plot(self, traffic_evolution, light_positions=None, green_durations=None, red_durations=None):
+    def matrix_plot(self, traffic_evolution, light_positions=None,
+                    green_durations=None, red_durations=None, start_red=None):
         fig, axis = plt.subplots()
 
         # plots the matrix values (white=empty, gray=car, gridlines=black)
@@ -99,15 +104,18 @@ class Visualiser:
                 green_duration, red_duration = green_durations[i], red_durations[i]
                 for time_step in range(traffic_evolution.shape[0]):
                     cycle_time = time_step % (green_duration + red_duration)
-                    if not cycle_time < green_duration:
-                        axis.axvspan(traffic_light-0.5, traffic_light+0.5,
-                                     1-((time_step+1)*(1/traffic_evolution.shape[0])),
-                                     1-(time_step*(1/traffic_evolution.shape[0])), color="red", alpha=0.3)
+                    if start_red[i]:
+                        light_is_green = cycle_time >= red_duration
                     else:
-                        axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
-                                      1 - ((time_step + 1) * (1 / traffic_evolution.shape[0])),
-                                      1 - (time_step * (1 / traffic_evolution.shape[0])), color="green", alpha=0.3)
+                        light_is_green = cycle_time < green_duration
 
+                    color = "green" if light_is_green else "red"
+                    axis.axvspan(
+                        traffic_light - 0.5, traffic_light + 0.5,
+                        1 - ((time_step + 1) * (1 / traffic_evolution.shape[0])),
+                        1 - (time_step * (1 / traffic_evolution.shape[0])),
+                        color=color, alpha=0.3
+                    )
         axis.set_xlabel("Road Position")
         axis.set_ylabel("Time Step")
 
@@ -131,3 +139,13 @@ class Visualiser:
         plt.xlabel("Density [vehicles/cell]")
         plt.ylabel("Velocity variance")
         plt.show()
+
+    def traffic_light_cycle_plot(self, num_cars_list, road_length, cycle_lengths, flow_list):
+        plt.figure()
+        for k in range(len(flow_list)):
+            plt.plot(cycle_lengths, flow_list[k], label=f"density={num_cars_list[k]/road_length}")
+        plt.xlabel("Cycle Length")
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+

@@ -1,5 +1,3 @@
-
-
 import numpy as np
 
 class Rule:
@@ -151,15 +149,22 @@ class MaxVelocityTrafficLights(MaxVelocity):
     """
     Implements the max velocity rule with traffic lights
     """
-    def __init__(self, road_length, max_velocity, light_positions, green_durations, red_durations):
+    def __init__(self, road_length, max_velocity,
+                 light_positions, green_durations,
+                 red_durations, start_red=None):
         super().__init__(road_length, max_velocity)
         self.light_positions = light_positions
         self.green_durations = green_durations
         self.red_durations = red_durations
+        self.start_red = start_red
 
-    def is_light_green(self, time_step, cycle_length, green_duration):
+    def is_light_green(self, time_step, cycle_length,
+                       green_duration, red_duration, start_red):
         cycle_time = time_step % cycle_length
-        return cycle_time < green_duration
+        if start_red:
+            return cycle_time >= red_duration
+        else:
+            return cycle_time < green_duration
 
     def apply_rule(self, positions, velocities, time_step):
         sorted_indices = np.argsort(positions)
@@ -178,7 +183,8 @@ class MaxVelocityTrafficLights(MaxVelocity):
             light_position = self.light_positions[i]
             green_duration, red_duration = self.green_durations[i], self.red_durations[i]
             cycle_length = green_duration + red_duration
-            if not self.is_light_green(time_step, cycle_length, green_duration):
+            if not self.is_light_green(time_step, cycle_length,
+                                       green_duration, red_duration, self.start_red[i]):
                 for j in range(len(sorted_positions)):
                     distance_to_light = (light_position - sorted_positions[j]) % self.road_length
                     if 0 < distance_to_light <= sorted_velocities[j]:
