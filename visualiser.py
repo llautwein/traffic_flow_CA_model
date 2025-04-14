@@ -66,8 +66,8 @@ class Visualiser:
                     color = "green" if light_is_green else "red"
                     axis.axvspan(traffic_light-0.5, traffic_light+0.5,
                                      color=color, alpha=0.3)
-                if frame > 0:
-                    animated_plot.set_data([traffic_evolution[frame, :]])
+            if frame > 0:
+                animated_plot.set_data([traffic_evolution[frame, :]])
             return animated_plot,
 
         animation = FuncAnimation(
@@ -81,29 +81,29 @@ class Visualiser:
         animation.save("CellAutomata/traffic_visualisation.gif")
 
     def matrix_plot(self, traffic_evolution, light_positions=None,
-                    green_durations=None, red_durations=None, start_red=None):
+                    green_durations=None, red_durations=None, start_red=None, offset=None):
         fig, axis = plt.subplots()
 
         # plots the matrix values (white=empty, gray=car, gridlines=black)
         axis.imshow(traffic_evolution, cmap="gray_r", vmin=0, vmax=2, aspect="auto")
 
         # sets labels on x- and y-axis
-        axis.set_xticks(np.arange(-0.5, traffic_evolution.shape[1], 1), minor=True)
-        axis.set_yticks(np.arange(-0.5, traffic_evolution.shape[0], 1), minor=True)
+        #axis.set_xticks(np.arange(-0.5, traffic_evolution.shape[1], 1), minor=True)
+        #axis.set_yticks(np.arange(-0.5, traffic_evolution.shape[0], 1), minor=True)
 
         # Enable full grid
-        axis.grid(which="minor", color="black", linestyle='-', linewidth=1)
+        #axis.grid(which="minor", color="black", linestyle='-', linewidth=1)
 
         # Align ticks with cell edges
-        axis.set_xticks(np.arange(traffic_evolution.shape[1]))
-        axis.set_yticks(np.arange(0, traffic_evolution.shape[0], 2))
+        #axis.set_xticks(np.arange(traffic_evolution.shape[1]))
+        #axis.set_yticks(np.arange(0, traffic_evolution.shape[0], 2))
 
         if light_positions is not None:
             for i in range(len(light_positions)):
                 traffic_light = light_positions[i]
                 green_duration, red_duration = green_durations[i], red_durations[i]
                 for time_step in range(traffic_evolution.shape[0]):
-                    cycle_time = time_step % (green_duration + red_duration)
+                    cycle_time = (time_step-offset[i]) % (green_duration + red_duration)
                     if start_red[i]:
                         light_is_green = cycle_time >= red_duration
                     else:
@@ -140,10 +140,28 @@ class Visualiser:
         plt.ylabel("Velocity variance")
         plt.show()
 
-    def traffic_light_cycle_plot(self, num_cars_list, road_length, cycle_lengths, flow_list):
+    def traffic_light_cycle_flow_sync_plot(self, num_cars_list, road_length, cycle_lengths, flow_list):
         plt.figure()
         for k in range(len(flow_list)):
             plt.plot(cycle_lengths, flow_list[k], label=f"density={num_cars_list[k]/road_length}")
+        plt.xlabel("Cycle Length")
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+
+    def traffic_light_delay_flow_plot(self, num_cars_list, road_length, offset_range, flow_list):
+        plt.figure()
+        for k in range(len(flow_list)):
+            plt.plot(offset_range, flow_list[k], label=f"density={num_cars_list[k]/road_length}")
+        plt.xlabel("Time delay")
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+
+    def traffic_light_cycle_flow_delay(self, cycle_lengths, offsets, flow_list):
+        plt.figure()
+        for k in range(len(flow_list)):
+            plt.plot(cycle_lengths, flow_list[k], label=f"Time delay: {offsets[k]}")
         plt.xlabel("Cycle Length")
         plt.ylabel("Flow [vehicles/timestep]")
         plt.legend()
