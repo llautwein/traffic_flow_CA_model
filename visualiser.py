@@ -104,23 +104,17 @@ class Visualiser:
 
         plt.show()
 
-    def density_meanvel_flow_plot(self, density, mean_velocity, variance_velocity, flow):
+    def density_meanvel_flow_plot(self, results):
         plt.figure()
-        plt.plot(density, mean_velocity)
+        plt.plot(results["densities"], results["velocities"])
         plt.xlabel("Density [vehicles/cell]")
         plt.ylabel("Mean velocity [cell/timestep]")
         plt.show()
 
         plt.figure()
-        plt.plot(density, flow)
+        plt.plot(results["densities"], results["flows"])
         plt.xlabel("Density [vehicles/cell]")
         plt.ylabel("Flow [vehicles/timestep]")
-        plt.show()
-
-        plt.figure()
-        plt.plot(density, variance_velocity)
-        plt.xlabel("Density [vehicles/cell]")
-        plt.ylabel("Velocity variance")
         plt.show()
 
     def traffic_light_cycle_flow_sync_plot(self, num_cars_list, road_length, cycle_lengths, flow_list):
@@ -157,3 +151,4 @@ class Visualiser:
         plt.xlabel("Braking probability")
         plt.ylabel("Average flow [vehicles/timestep]")
         plt.show()
+
