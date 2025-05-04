@@ -1,5 +1,6 @@
 import numpy as np
 
+
 """
 This class implements the skeleton for a cellular automaton. It is based on a position-velocity
 approach, where the positions and velocities of each car are tracked and updated.
@@ -19,8 +20,10 @@ class CellularAutomaton:
         self.local_flows = np.zeros(self.max_timesteps)
         self.start = detect_start
         self.end = detect_end
+        self.light_state_history = []
 
     def simulate(self, rule):
+        self.light_state_history = []
         for t in range(self.max_timesteps):
             self.update_traffic_evolution(t)
             current_positions = np.copy(self.positions)
@@ -36,11 +39,13 @@ class CellularAutomaton:
                 self.local_flows[t] = local_flow
                     
             next_positions, next_velocities = rule.apply_rule(current_positions, current_velocities, t)
+            current_light_states = rule.get_light_states(t)
+            self.light_state_history.append(current_light_states)
             self.positions = next_positions
             self.velocities = next_velocities
 
         return (self.traffic_evolution, self.local_space_meanVels, self.local_velocity_variance,
-                self.local_densities, self.local_flows)
+                self.local_densities, self.local_flows, self.light_state_history)
 
     def local_measurement(self, current_positions, current_velocities):
         mask = (current_positions >= self.start) & (current_positions <= self.end)

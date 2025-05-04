@@ -6,12 +6,21 @@ class Rule:
     """
     def __init__(self, road_length):
         self.road_length = road_length
+        self.light_positions = []
 
     def apply_rule(self, positions, velocities, time_step):
         pass
 
-    def BC(self):
-        pass
+    def get_light_states(self, time_step):
+        """
+        Returns the state of the lights after the rule logic for the given timestep.
+        Should be called *after* apply_rule (or internal state update).
+
+        Returns:
+            dict: A dictionary mapping light position (int) to its state (bool: True=Green, False=Red).
+                  Returns None or empty dict if the rule has no lights or state tracking.
+        """
+        return {}
         
 class Rule184(Rule):
     def __init__(self, road_length):
@@ -178,6 +187,15 @@ class TrafficLights(MaxVelocity):
         else:
             return cycle_time < self.green_durations[i]
 
+    def get_light_states(self, time_step):
+        """ Calculates and returns the state of lights for fixed-cycle rules. """
+        states = {}
+        if self.light_positions is not None:
+            for i, light_pos in enumerate(self.light_positions):
+                # Call the existing logic used during apply_rule
+                states[light_pos] = self.is_light_green(i, time_step)
+        return states
+
     def apply_rule(self, positions, velocities, time_step):
         sorted_indices = np.argsort(positions)
         sorted_positions = positions[sorted_indices]
@@ -209,4 +227,80 @@ class TrafficLights(MaxVelocity):
         sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
         return sorted_positions, sorted_velocities
 
-# Todo: class for self organised, queue-based traffic lights
+class SelfOrganisedTrafficLights(MaxVelocity):
+    """
+    Implements self-organised, queue-based traffic lights.
+
+    Switches red to green when the number of vehicles within distance d exceeds a threshold.
+    Ensures a minimum green time, and returns to red either when no vehicles remain or a maximum green time elapses.
+    """
+    def __init__(self, road_length, max_velocity,
+                 light_positions, d, threshold,
+                 min_green, max_green, braking_probability=None):
+        super().__init__(road_length, max_velocity)
+        self.light_positions = light_positions
+        self.d = d
+        self.threshold = threshold
+        self.min_green = min_green
+        self.max_green = max_green
+        self.braking_probability = braking_probability
+        # initial state: all red
+        self.is_green = [False] * len(light_positions)
+        self.time_since_change = [0] * len(light_positions)
+
+    def update_light_states(self, positions):
+        for i, lp in enumerate(self.light_positions):
+            # count vehicles upstream within distance d
+            distances = (lp - positions) % self.road_length
+            count = int(np.sum((distances > 0) & (distances <= self.d)))
+            if not self.is_green[i]:
+                if count >= self.threshold:
+                    # switch to green
+                    self.is_green[i] = True
+                    self.time_since_change[i] = 0
+            else:
+                # currently green: maintain min_green
+                if self.time_since_change[i] >= self.min_green:
+                    if count == 0 or self.time_since_change[i] >= self.max_green:
+                        # switch to red
+                        self.is_green[i] = False
+                        self.time_since_change[i] = 0
+            # no change otherwise
+        # increment timers
+        self.time_since_change = [t + 1 for t in self.time_since_change]
+
+    def get_light_states(self, time_step):
+        """ Returns the currently stored state of self-organized lights. """
+        states = {}
+        for i, light_pos in enumerate(self.light_positions):
+            states[light_pos] = self.is_green[i]  # Return the stored boolean state
+        return states
+
+    def apply_rule(self, positions, velocities, time_step):
+        # update lights based on current queue lengths
+        self.update_light_states(positions)
+
+        # sort for updates
+        sorted_indices = np.argsort(positions)
+        sorted_positions = positions[sorted_indices]
+        sorted_velocities = velocities[sorted_indices]
+
+        # apply max velocity rule
+        gaps = self.compute_gaps(sorted_positions)
+        sorted_velocities = np.minimum(sorted_velocities + 1, self.max_velocity)
+        sorted_velocities = np.minimum(sorted_velocities, gaps)
+        if self.braking_probability is not None:
+            brakes = np.random.rand(len(sorted_velocities)) < self.braking_probability
+            sorted_velocities[brakes] = np.maximum(sorted_velocities[brakes] - 1, 0)
+
+        # enforce red lights for self-organised
+        for i_lp, lp in enumerate(self.light_positions):
+            if not self.is_green[i_lp]:
+                for j in range(len(sorted_positions)):
+                    distance_to_light = (lp - sorted_positions[j]) % self.road_length
+                    if 0 < distance_to_light <= sorted_velocities[j]:
+                        sorted_velocities[j] = distance_to_light - 1
+
+        # update positions
+        sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
+        return sorted_positions, sorted_velocities

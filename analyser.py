@@ -32,7 +32,28 @@ class Analyser:
             flow.append(np.mean(local_flows[1:]))
         return density, mean_velocity, var_velocity, flow
 
-    def traffic_light_cycle_analysis(self, num_cars_list, max_velocity, light_position, cycle_lengths):
+    def flow_braking_prob_plot(self, p_values, num_cars):
+        flow_list = []
+        runs_per_prob = 5
+        avg_flow = []
+        for i in range(len(p_values)):
+            flows = []
+            for j in range(runs_per_prob):
+                initial_positions = random.sample(range(self.road_length), num_cars)
+                initial_velocities = np.zeros(num_cars)
+                automaton = ca.CellularAutomaton(initial_positions, initial_velocities,
+                                                 self.road_length, self.max_timesteps,
+                                                 0, self.road_length - 1)
+                r = rule.Rule184_random(self.road_length, p_values[i])
+                (traffic_evolution, space_mean_velocities, variance_velocity,
+                 local_densities, local_flows) = automaton.simulate(r)
+                flows.append(np.mean(local_flows[1:]))
+            avg_flow.append(np.mean(flows))
+        return avg_flow
+
+
+
+    def traffic_light_cycle_analysis(self, num_cars_list, max_velocity, light_positions, cycle_lengths, braking_probability=None):
         """
         Computes the through-flows for different densities in dependence of the cycle lengths.
         """
@@ -45,8 +66,9 @@ class Analyser:
                 automaton = ca.CellularAutomaton(initial_positions, initial_velocities,
                                                  self.road_length, self.max_timesteps,
                                                  0, self.road_length-1)
-                r = rule.TrafficLights(self.road_length, max_velocity, light_position,
-                                                  [T], [T])
+                r = rule.TrafficLights(self.road_length, max_velocity, light_positions,
+                                                  [T for k in range(len(light_positions))],
+                                                  [T for k in range(len(light_positions))], braking_probability=braking_probability)
                 (traffic_evolution, space_mean_velocities, variance_velocity,
                  local_densities, local_flows) = automaton.simulate(r)
                 flow.append(np.mean(local_flows[1:]))
@@ -98,32 +120,35 @@ class Analyser:
             flow_lists.append(flow)
         return flow_lists
 
-max_timesteps = int(10000)
+max_timesteps = int(5000)
 max_velocity = 5
+
 """
 # code to obtain cycle length vs. flow plot for different time delays
-road_length = 300
+# to compare synchronised strategy with green wave strategy using the optimal time delay
+road_length = 200
 analyser = Analyser(road_length, max_timesteps)
 visualiser = visualiser.Visualiser()
-num_cars = 30
-light_positions = [50, 100, 150, 200]
+num_cars = 10
+light_positions = [25, 75, 125, 175]
 green_durations = [15, 15, 15, 15]
 red_durations = [15, 15, 15, 15]
 start_red = [False, False, False, False]
 cycle_lengths = np.arange(5, 151, 5)
-offsets = [0, 5, 10, 20]
+offsets = [0, 10]
 flow = analyser.traffic_light_cycle_flow_offset(num_cars, max_velocity,
                                         light_positions, cycle_lengths,
                                         start_red, offsets, 0.1)
 visualiser.traffic_light_cycle_flow_delay(cycle_lengths, offsets, flow)
 """
 
-
+"""
 # code to obtain a flow vs time delay plot
-road_length = 300
+# to verify optimal time delay for the green wave strategy
+road_length = 250
 analyser = Analyser(road_length, max_timesteps)
 visualiser = visualiser.Visualiser()
-num_cars_list = [20, 25, 30, 35]
+num_cars_list = [25, 150]
 light_positions = [50, 100, 150, 200]
 green_durations = [15, 15, 15, 15]
 red_durations = [15, 15, 15, 15]
@@ -135,19 +160,19 @@ flow = analyser.traffic_light_offset_flow(num_cars_list, max_velocity,
                                   start_red, offset_range, braking_probability)
 
 visualiser.traffic_light_delay_flow_plot(num_cars_list, road_length, offset_range, flow)
-
+"""
 
 """
 #Code to obtain the plot cycle length vs. through flow
-# observe, how the positive effect can only be observed for relatively low car densities
-# eventually, the effect vanishes for moderate to high densities
+# to understand the relation of those parameters for the synchronised strategy
 road_length = 100
 analyser = Analyser(road_length, max_timesteps)
 visualiser = visualiser.Visualiser()
-num_cars = [5, 20, 50, 70]
+num_cars = [12, 50, 125, 200]
 cycle_lengths = np.arange(5, 151, 5)
-light_positions = [50]
-flow = analyser.traffic_light_cycle_analysis(num_cars, max_velocity, light_positions, cycle_lengths)
+light_positions = [25, 75, 150, 200]
+flow = analyser.traffic_light_cycle_analysis(num_cars, max_velocity, light_positions,
+                                             cycle_lengths, 0.1)
 visualiser.traffic_light_cycle_flow_sync_plot(num_cars, road_length, cycle_lengths, flow)
 """
 
@@ -161,3 +186,10 @@ density, mean_velocity, var_velocity, flow = analyser.density_vel_flow(rule)
 visualiser.density_meanvel_flow_plot(density, mean_velocity, var_velocity, flow)
 """
 
+road_length = 200
+analyser = Analyser(road_length, max_timesteps)
+visualiser = visualiser.Visualiser()
+num_cars = 50
+p_values = np.linspace(0, 1, 20)
+avg_flow = analyser.flow_braking_prob_plot(p_values, num_cars)
+visualiser.flow_braking_prob(p_values, avg_flow)

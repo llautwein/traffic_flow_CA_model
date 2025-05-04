@@ -20,8 +20,7 @@ class Visualiser:
             "legend.fontsize": 12,
         })
 
-    def create_gif(self, traffic_evolution, light_positions=None,
-                   green_durations=None, red_durations=None, start_red=None):
+    def create_gif(self, traffic_evolution, light_positions=None, light_state_history=None):
         fig, axis = plt.subplots()
         # Set x- and y-axis
         axis.set_xlim(0, traffic_evolution.shape[1] - 0.5)
@@ -37,11 +36,6 @@ class Visualiser:
         # Shows grid for the final animation
         axis.grid(True, which="minor", color="black", linestyle='-', linewidth=1)
 
-        # Overlay the detector region
-        if self.detect_start is not None and self.detect_end is not None:
-            axis.axvspan(self.detect_start - 0.5, self.detect_end + 0.5,
-                         color='red', alpha=0.3, zorder=1)
-
         # initial plot for the animation is the initial state of the system
         animated_plot = axis.imshow(
             [traffic_evolution[0, :]], cmap="gray_r", vmin=0, vmax=2, aspect="equal",
@@ -51,20 +45,14 @@ class Visualiser:
         # updates the data which is plotted for every frame (frame corresponds to the time step in the model)
         def update_data(frame):
             if light_positions is not None:
-                for i in range(len(light_positions)):
-                    traffic_light = light_positions[i]
-                    green_duration, red_duration = green_durations[i], red_durations[i]
-                    axis.axvspan(traffic_light - 0.5, traffic_light + 0.5,
+                states_in_frame = light_state_history[frame]
+                for light_pos in light_positions:
+                    axis.axvspan(light_pos - 0.5, light_pos + 0.5,
                                  color="white")
-                    cycle_time = frame % (green_duration + red_duration)
-
-                    if start_red[i]:
-                        light_is_green = cycle_time >= red_duration
-                    else:
-                        light_is_green = cycle_time < green_duration
+                    light_is_green = states_in_frame.get(light_pos, False)
 
                     color = "green" if light_is_green else "red"
-                    axis.axvspan(traffic_light-0.5, traffic_light+0.5,
+                    axis.axvspan(light_pos-0.5, light_pos+0.5,
                                      color=color, alpha=0.3)
             if frame > 0:
                 animated_plot.set_data([traffic_evolution[frame, :]])
@@ -80,8 +68,7 @@ class Visualiser:
 
         animation.save("CellAutomata/traffic_visualisation.gif")
 
-    def matrix_plot(self, traffic_evolution, light_positions=None,
-                    green_durations=None, red_durations=None, start_red=None, offset=None):
+    def matrix_plot(self, traffic_evolution, light_positions=None, light_state_history=None):
         fig, axis = plt.subplots()
 
         # plots the matrix values (white=empty, gray=car, gridlines=black)
@@ -100,18 +87,14 @@ class Visualiser:
 
         if light_positions is not None:
             for i in range(len(light_positions)):
-                traffic_light = light_positions[i]
-                green_duration, red_duration = green_durations[i], red_durations[i]
+                light_pos = light_positions[i]
                 for time_step in range(traffic_evolution.shape[0]):
-                    cycle_time = (time_step-offset[i]) % (green_duration + red_duration)
-                    if start_red[i]:
-                        light_is_green = cycle_time >= red_duration
-                    else:
-                        light_is_green = cycle_time < green_duration
+                    states_in_frame = light_state_history[time_step]
+                    light_is_green = states_in_frame.get(light_pos, False)
 
                     color = "green" if light_is_green else "red"
                     axis.axvspan(
-                        traffic_light - 0.5, traffic_light + 0.5,
+                        light_pos - 0.5, light_pos + 0.5,
                         1 - ((time_step + 1) * (1 / traffic_evolution.shape[0])),
                         1 - (time_step * (1 / traffic_evolution.shape[0])),
                         color=color, alpha=0.3
@@ -167,3 +150,10 @@ class Visualiser:
         plt.legend()
         plt.show()
 
+
+    def flow_braking_prob(self, p_values, avg_flow):
+        plt.figure()
+        plt.plot(p_values, avg_flow)
+        plt.xlabel("Braking probability")
+        plt.ylabel("Average flow [vehicles/timestep]")
+        plt.show()
