@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-
+import csv
+import pickle
 
 class Visualiser:
 
@@ -15,12 +16,44 @@ class Visualiser:
         plt.rcParams.update({
             "axes.titlesize": 18,
             "axes.labelsize": 12,
-            "xtick.labelsize": 12,
-            "ytick.labelsize": 8,
-            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "legend.fontsize": 14,
         })
 
+    @staticmethod
+    def read_csv_grid(filename, dtype=float):
+        """
+        Reads a 2D grid from a CSV file into a NumPy array.
+
+        Args:
+            filename (str): The base name of the input file ('.csv' will be added).
+            dtype (type): The desired data type for the NumPy array elements
+                          (e.g., float, int). Defaults to float.
+
+        Returns:
+            np.ndarray: A 2D NumPy array containing the data, or None if error.
+        """
+        full_path = f"{filename}.csv"
+        print(f"Reading 2D data from {full_path}...")
+        data = []
+
+        with open(full_path, "r") as f:
+            reader = csv.reader(f)
+            for row_str in reader:
+                processed_row = [dtype(item) for item in row_str]
+                data.append(processed_row)
+        print("Read successful.")
+        return np.array(data, dtype=dtype)
+
+    @staticmethod
+    def read_pickle(filename):
+        with open(filename, 'rb') as f:  # Open in binary read mode
+            loaded_data = pickle.load(f)
+        return loaded_data
+
     def create_gif(self, traffic_evolution, light_positions=None, light_state_history=None):
+        plt.rcParams.update({"xtick.labelsize": 8})
         fig, axis = plt.subplots()
         # Set x- and y-axis
         axis.set_xlim(0, traffic_evolution.shape[1] - 0.5)
@@ -104,17 +137,32 @@ class Visualiser:
 
         plt.show()
 
-    def density_meanvel_flow_plot(self, results):
-        plt.figure()
-        plt.plot(results["densities"], results["velocities"])
-        plt.xlabel("Density [vehicles/cell]")
-        plt.ylabel("Mean velocity [cell/timestep]")
-        plt.show()
+    def density_meanvel_flow_plot(self, filename, fixed_value):
+        """
+        Plots the general density vs mean velocity / flow graph.
+        :param fixed_value: String of the form vmax=... or p=...
+        """
+        results = self.read_pickle(filename)
+        fig, (ax_f, ax_v) = plt.subplots(2, 1, figsize=(8, 10), sharex=False)
+        for label, data in results.items():
+            if fixed_value in label:
+                parts = label.split(',')
+                part1 = parts[0].strip()
+                part2 = parts[1].strip()
+                if fixed_value in part1:
+                    plot_label = part2
+                elif fixed_value in part2:
+                    plot_label = part1
+                ax_f.plot(data['densities'], data['flows'], marker='.', linestyle='-', label=plot_label)
+                ax_v.plot(data['densities'], data['velocities'], marker='.', linestyle='-', label=plot_label)
 
-        plt.figure()
-        plt.plot(results["densities"], results["flows"])
-        plt.xlabel("Density [vehicles/cell]")
-        plt.ylabel("Flow [vehicles/timestep]")
+        ax_f.set_ylabel("Average Flow [vehicles/timestep]")
+        ax_f.set_xlabel("Density [vehicles/cell]")
+        ax_f.legend()
+
+        ax_v.set_ylabel("Average Velocity [cells/timestep]")
+        ax_v.set_xlabel("Density [vehicles/cell]")
+        ax_v.legend()
         plt.show()
 
     def traffic_light_cycle_flow_sync_plot(self, num_cars_list, road_length, cycle_lengths, flow_list):
@@ -123,7 +171,23 @@ class Visualiser:
             plt.plot(cycle_lengths, flow_list[k], label=f"density={num_cars_list[k]/road_length}")
         plt.xlabel("Cycle Length")
         plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend(loc="upper right")
+        plt.show()
+
+    def red_green_proportion_plot(self, results_path):
+        results = self.read_pickle(results_path)
+        plt.figure()
+        for T, data in results.items():
+            green_durations = np.array(data['green_durations'])
+            actual_fractions = green_durations / T
+            plt.plot(actual_fractions, data['flows'], marker='.', markersize=5,
+                     linestyle='-', label=f'Total Cycle = {T}')
+
+        plt.xlabel("Green Time Fraction")
+        plt.ylabel("Average Flow [vehicles/timestep]")
         plt.legend()
+        plt.ylim(bottom=0)
+        plt.xlim(0, 1)
         plt.show()
 
     def traffic_light_delay_flow_plot(self, num_cars_list, road_length, offset_range, flow_list):
@@ -132,15 +196,23 @@ class Visualiser:
             plt.plot(offset_range, flow_list[k], label=f"density={num_cars_list[k]/road_length}")
         plt.xlabel("Time delay")
         plt.ylabel("Flow [vehicles/timestep]")
-        plt.legend()
+        #plt.legend()
         plt.show()
 
-    def traffic_light_cycle_flow_delay(self, cycle_lengths, offsets, flow_list):
+    def traffic_light_cycle_flow_delay(self, cycle_lengths, offsets, flow_list, velocity_list):
         plt.figure()
         for k in range(len(flow_list)):
             plt.plot(cycle_lengths, flow_list[k], label=f"Time delay: {offsets[k]}")
         plt.xlabel("Cycle Length")
         plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+
+        plt.figure()
+        for k in range(len(flow_list)):
+            plt.plot(cycle_lengths, velocity_list[k], label=f"Time delay: {offsets[k]}")
+        plt.xlabel("Cycle Length")
+        plt.ylabel("Velocity [cells/timestep]")
         plt.legend()
         plt.show()
 
@@ -152,3 +224,58 @@ class Visualiser:
         plt.ylabel("Average flow [vehicles/timestep]")
         plt.show()
 
+    def sotl_parameter_influence_onefixed(self, parameter_to_vary, parameter_values, flow):
+        plt.figure()
+        plt.plot(parameter_values, flow)
+        plt.xlabel(parameter_to_vary)
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.show()
+
+    def sotl_parameter_influence_grid(self, threshold_values, distance_values, path_to_grid):
+        X, Y = np.meshgrid(distance_values, threshold_values)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        flows_grid = self.read_csv_grid(path_to_grid)
+
+        contour = ax.contourf(X, Y, flows_grid, cmap='viridis', levels=20)
+
+        cbar = fig.colorbar(contour)
+        cbar.set_label('Average Flow [vehicles/timestep]')
+
+        # Label the axes
+        ax.set_xlabel("Detection Distance (d) [cells]")
+        ax.set_ylabel("Queue Threshold (N_wait)")
+        plt.show()
+
+    def compare_sync_gw(self, results):
+        plt.figure()
+        plt.plot(results["densities"], results["gw_flows"], label="Green wave", color="green")
+        plt.plot(results["densities"], results["sync_flows"], label="Synchronised")
+        plt.xlabel("Density [vehicles/cell]")
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+
+        plt.figure()
+        plt.plot(results["densities"], results["gw_velocities"], label="Green wave", color="green")
+        plt.plot(results["densities"], results["sync_velocities"], label="Synchronised")
+        plt.xlabel("Density [vehicles/cell]")
+        plt.ylabel("Velocity [cells/timestep]")
+        plt.legend()
+        plt.show()
+
+    def compare_gw_sotl(self, results):
+        plt.figure()
+        plt.plot(results["densities"], results["gw_flows"], label="Green wave", color="green")
+        plt.plot(results["densities"], results["sotl_flows"], label="Self organised")
+        plt.xlabel("Density [vehicles/cell]")
+        plt.ylabel("Flow [vehicles/timestep]")
+        plt.legend()
+        plt.show()
+
+        plt.figure()
+        plt.plot(results["densities"], results["gw_velocities"], label="Green wave", color="green")
+        plt.plot(results["densities"], results["sotl_velocities"], label="Self organised")
+        plt.xlabel("Density [vehicles/cell]")
+        plt.ylabel("Velocity [cells/timestep]")
+        plt.legend()
+        plt.show()

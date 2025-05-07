@@ -83,49 +83,17 @@ class Rule184_random(Rule):
 
         return sorted_positions, sorted_velocities
 
+
 class MaxVelocity(Rule):
-    """
-    Includes a maximum velocity rule, in a deterministic setup.
-    """
-    def __init__(self, road_length, max_velocity):
-        super().__init__(road_length)
-        self.max_velocity = max_velocity
-
-    def compute_gaps(self, current_positions):
-        # gap to preceding vehicle
-        gap = np.roll(current_positions, -1) - current_positions - np.ones(len(current_positions))
-        gap[-1] += self.road_length
-        return gap
-
-    def apply_rule(self, positions, velocities, time_step):
-        sorted_indices = np.argsort(positions)
-        sorted_positions = positions[sorted_indices]
-        sorted_velocities = velocities[sorted_indices]
-
-        # Gaps between each car and its preceding vehicle
-        gaps = self.compute_gaps(sorted_positions)
-
-        # Increases the velocity by one, except when max velocity is reached
-        sorted_velocities = np.minimum(sorted_velocities + 1, self.max_velocity)
-
-        # Ensures that cars don't collide
-        sorted_velocities = np.minimum(sorted_velocities, gaps)
-
-        # Updates the positions
-        sorted_positions = (sorted_positions + sorted_velocities) % self.road_length
-        return sorted_positions, sorted_velocities
-
-
-class MaxVelocityRandom(Rule):
     """
     Includes a maximum velocity rule, in a non-deterministic setup.
     Driver randomly decrease their speed by 1 with a certain probability.
     """
 
-    def __init__(self, road_length, max_velocity, braking_probality):
+    def __init__(self, road_length, max_velocity, braking_probability=0):
         super().__init__(road_length)
         self.max_velocity = max_velocity
-        self.braking_probability = braking_probality
+        self.braking_probability = braking_probability
 
     def compute_gaps(self, current_positions):
         gap = np.roll(current_positions, -1) - current_positions - np.ones(len(current_positions))
@@ -247,27 +215,30 @@ class SelfOrganisedTrafficLights(MaxVelocity):
         # initial state: all red
         self.is_green = [False] * len(light_positions)
         self.time_since_change = [0] * len(light_positions)
+        self.waiting_time_counter = [0] * len(light_positions)
 
     def update_light_states(self, positions):
         for i, lp in enumerate(self.light_positions):
-            # count vehicles upstream within distance d
+            switch = False
             distances = (lp - positions) % self.road_length
             count = int(np.sum((distances > 0) & (distances <= self.d)))
             if not self.is_green[i]:
-                if count >= self.threshold:
+                self.waiting_time_counter[i] += count
+                if self.waiting_time_counter[i] >= self.threshold:
                     # switch to green
                     self.is_green[i] = True
+                    switch = True
                     self.time_since_change[i] = 0
+                    self.waiting_time_counter[i] = 0
             else:
-                # currently green: maintain min_green
                 if self.time_since_change[i] >= self.min_green:
                     if count == 0 or self.time_since_change[i] >= self.max_green:
-                        # switch to red
                         self.is_green[i] = False
+                        switch = True
                         self.time_since_change[i] = 0
-            # no change otherwise
-        # increment timers
-        self.time_since_change = [t + 1 for t in self.time_since_change]
+                        self.waiting_time_counter[i] = 0
+            if not switch:
+                self.time_since_change[i] += 1
 
     def get_light_states(self, time_step):
         """ Returns the currently stored state of self-organized lights. """

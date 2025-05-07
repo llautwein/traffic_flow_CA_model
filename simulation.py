@@ -5,33 +5,31 @@ import random
 import cellular_automaton as ca
 
 np.set_printoptions(precision=2)
-road_length, num_cars, max_timesteps, max_velocity = 20, 3, 50, 1
+road_length, num_cars, max_timesteps, max_velocity = 30, 3, 100, 1
 initial_positions = random.sample(range(road_length), num_cars)
 initial_velocities = np.zeros(num_cars)
 # --- Choose the rule ---
 
-# Rule 184
-# r = rule.Rule184(road_length)
-
-
 # TrafficLights (Fixed Cycle / Green Wave)
-# light_pos = [5, 15]
-# green_duration = [5, 5]
-# red_duration = [5, 5]
-# start_red = [False, False]
-# offset = [0, 2] # Example offset
-# r = rule.TrafficLights(road_length, max_velocity, light_pos, green_duration, red_duration, start_red, offset)
-# initial_positions = random.sample(range(road_length), num_cars)
+light_pos = [5, 15, 25]
+green_duration = [10, 10, 10]
+red_duration = [10, 10, 10]
+start_red = [False, False, False]
+offset = [0, 0, 0]
+r = rule.TrafficLights(road_length, max_velocity, light_pos,
+                       green_duration, red_duration, start_red, offset, 0.1)
 
 
+"""
 # SelfOrganisedTrafficLights
 track_distance = 3
-threshold = 3
-min_green = 3
-max_green = 10
-light_pos = [10]
+threshold = 5
+min_green = 10
+max_green = 15
+light_pos = [5, 15, 25]
 r = rule.SelfOrganisedTrafficLights(road_length, max_velocity, light_pos, track_distance,
-                                    threshold, min_green, max_green, braking_probability=0.0)
+                                    threshold, min_green, max_green, braking_probability=0.1)
+"""
 
 # --- Setup Automaton and Simulate ---
 automaton = ca.CellularAutomaton(np.array(initial_positions), np.array(initial_velocities),
